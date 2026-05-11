@@ -1,0 +1,25 @@
+Para la instalación  del proyecto utilice primero el comando 
+pip install virtualenv
+Luego cuando lo instalamos, tiramos este comando
+python -m virtualenv venv
+para crear la carpeta ven
+para luego y no menos importante, instalar los paquetes de Python
+ya que si no lo haces no podrás encontrar el comando
+Python Select Intepreter en la paleta que se despliega luego de apretar F1
+
+Luego pip install django
+luego colocar este comando
+django-admin startproject erp_project .
+
+y para probar si funciona el proyecto solo tenemos que presionar 
+Python manage.py runserver
+
+Python manage.py migrate 
+esto para migrar los cambios realizados
+
+luego para crear la app debemos colocar el siguiente comando
+
+Python manange.py startapp core
+
+luego creamos el núcleo users con el comando
+Python manage.py startapp users
