@@ -72,6 +72,4 @@ def material_create(request):
         form = MaterialForm()
 
     return render(request, 'materials/materials_form.html', {
-        'form': form,
-        'title': 'Create Material',
-    })
+        'form': form})
