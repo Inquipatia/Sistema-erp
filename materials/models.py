@@ -11,7 +11,7 @@ class Material(models.Model):
     id_material = models.CharField(
         max_length=50,
         null=True,
-        blank=True,
+        unique=True,
         verbose_name='Material ID'
     )
 
