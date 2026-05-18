@@ -1,3 +1,12 @@
 from django.contrib import admin
+from .models import Unit, MaterialType
 
+@admin.register(Unit)
+class UnitMeasureAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+
+
+@admin.register(MaterialType)
+class MaterialTypeAdmin(admin.ModelAdmin):
+    list_display = ('name',)
 # Register your models here.

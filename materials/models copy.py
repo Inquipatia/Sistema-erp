@@ -1,0 +1,109 @@
+from django.db import models
+from django.conf import settings
+
+
+class Unit(models.Model):
+    name = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Unit Name"
+    )
+
+    symbol = models.CharField(
+        max_length=10,
+        unique=True,
+        verbose_name="Symbol"
+    )
+
+    class Meta:
+        verbose_name = "Unit"
+        verbose_name_plural = "Units"
+
+    def __str__(self):
+        return f"{self.name} ({self.symbol})"
+
+
+class MaterialType(models.Model):
+    name = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name="Material Type Name"
+    )
+
+    symbol = models.CharField(
+        max_length=10,
+        unique=True,
+        verbose_name="Symbol"
+    )
+
+    class Meta:
+        verbose_name = "Material Type"
+        verbose_name_plural = "Material Types"
+
+    def __str__(self):
+        return f"{self.name} ({self.symbol})"
+
+
+class Material(models.Model):
+    STATUS_CHOICES = [
+        ("Active", "Active"),
+        ("Inactive", "Inactive"),
+    ]
+
+    id_material = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        unique=True,
+        verbose_name="Material ID"
+    )
+
+    name = models.CharField(
+        max_length=100,
+        verbose_name="Name"
+    )
+
+    description = models.TextField(
+        max_length=250,
+        blank=True,
+        verbose_name="Description"
+    )
+
+    unit = models.CharField(
+        max_length=50,
+        verbose_name="Unit measure"
+    )
+
+    material_type = models.CharField(
+        max_length=50,
+        verbose_name="Material type"
+    )
+
+    status = models.CharField(
+        max_length=50,
+        choices=STATUS_CHOICES,
+        default="Active",
+        verbose_name="Status"
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        verbose_name = "Material"
+        verbose_name_plural = "Materials"
+
+    def __str__(self):
+        return self.name
