@@ -29,8 +29,9 @@ def get_supplier_details(request, supplier_id):
         "email": supplier.email,
         "contact_name": supplier.contact_name,
         "payment_terms": supplier.payment_terms,
-        "currency": supplier.currency,
+        "currency": supplier.currency.code if supplier.currency else "",
     }
+
     return JsonResponse(data)
 
 
@@ -46,10 +47,19 @@ def get_material_details(request, material_id):
 
 
 def purchase_order_form(request):
-
-    context = {"title": "Create New Purchases Order"}
-
+    context = {"title": "Create New Purchase Order"}
     return render(request, "purchases/purchase_order_create.html", context)
+
+
+def purchase_order_list(request):
+    purchase_orders = PurchaseOrder.objects.all().order_by("-created_at")
+
+    context = {
+        "title": "Purchase Orders List",
+        "purchase_orders": purchase_orders,
+    }
+
+    return render(request, "purchases/purchase_order_list.html", context)
 
 
 @csrf_exempt
@@ -58,6 +68,7 @@ def purchase_order_form(request):
 def create_purchase_order(request):
     try:
         data = json.loads(request.body)
+
         supplier_id_str = data.get("id_supplier")
         estimated_delivery_date = data.get("estimated_delivery_date")
         lines_data = data.get("lines", [])
@@ -65,16 +76,14 @@ def create_purchase_order(request):
         if not supplier_id_str or not estimated_delivery_date or not lines_data:
             return JsonResponse(
                 {
-                    "error": "Missing required fields (Supplier ID, Delivery Date, or Line Items)."
+                    "error": "Missing required fields: supplier, delivery date or line items."
                 },
                 status=400,
             )
 
         try:
-            supplier_id_value = supplier_id_str
-            supplier = get_object_or_404(Supplier, id_supplier=supplier_id_value)
+            supplier = get_object_or_404(Supplier, id_supplier=supplier_id_str)
             status = get_object_or_404(OrderStatus, pk=2)
-
         except Exception:
             return JsonResponse(
                 {"error": "Invalid Supplier ID or default Order Status not found."},
@@ -85,82 +94,87 @@ def create_purchase_order(request):
         last_id_str = max_id_result.get("max_id")
 
         next_po_number = 1
+
         if last_id_str:
             try:
                 next_po_number = int(last_id_str) + 1
             except ValueError:
-                print(f"Warning: The last ID'{last_id_str}' is not number.")
+                print(f"Warning: The last ID '{last_id_str}' is not a number.")
                 next_po_number = 1
 
-            next_po_id = str(next_po_number)
+        next_po_id = str(next_po_number)
 
-            purchase_order = PurchaseOrder.objects.create(
-                id_purchase_order=next_po_id,
-                id_supplier=supplier,
-                estimated_delivery_date=estimated_delivery_date,
-                status=status,
+        purchase_order = PurchaseOrder.objects.create(
+            id_purchase_order=next_po_id,
+            id_supplier=supplier,
+            estimated_delivery_date=estimated_delivery_date,
+            status=status,
+            created_by=request.user,
+        )
+
+        for i, line_data in enumerate(lines_data, start=1):
+            material_id = line_data.get("id_material")
+            unit_symbol = line_data.get("unit_material")
+            currency_symbol = line_data.get("currency_supplier")
+            quantity = line_data.get("quantity")
+            price = line_data.get("price")
+            position = line_data.get("position", i)
+
+            if (
+                not material_id
+                or not unit_symbol
+                or not currency_symbol
+                or not quantity
+                or not price
+            ):
+                raise ValueError(f"Missing information in line {i}.")
+
+            try:
+                material = get_object_or_404(Material, id_material=material_id)
+                unit_object = get_object_or_404(Unit, symbol__iexact=unit_symbol)
+                currency_obj = get_object_or_404(Currency, code__iexact=currency_symbol)
+            except Exception:
+                raise ValueError(
+                    f"Invalid material, unit or currency in line {i}. "
+                    f"Material: {material_id}, Unit: {unit_symbol}, Currency: {currency_symbol}"
+                )
+
+            line_po_id = f"{next_po_id}-{str(position).zfill(3)}"
+
+            LinesPurchaseOrder.objects.create(
+                id_purchase_order_line=line_po_id,
+                id_purchase_order=purchase_order,
+                id_material=material,
+                position=position,
+                quantity=quantity,
+                unit_material=unit_object,
+                price=price,
+                currency_supplier=currency_obj,
+                received_quantity=0,
                 created_by=request.user,
             )
 
-            for i, line_data in enumerate(lines_data, start=1):
-                material_id = line_data.get("id_material")
-                unit_symbol = lines_data.get("unit_material")
-                currency_symbol = line_data.get("currency_supplier")
-                quantity = line_data.get("quantity")
-                price = line_data.get("price")
-                position = line_data("position", i)
+        response_data = {
+            "success": True,
+            "id_purchase_order": next_po_id,
+            "message": f"Purchase Order {next_po_id} created successfully.",
+            "redirect_url": "/purchases/list/",
+        }
 
-                try:
-                    material = get_object_or_404(Material, id_material=material_id)
-                    unit_object = get_object_or_404(Unit, symbol=currency_symbol)
-                    currency_obj = get_object_or_404(Currency, symbol=currency_symbol)
-                except Material.DoesNotExist:
-                    raise ValueError(
-                        f"Material ID '{material_id}' not found for line {i}."
-                    )
-                except Unit.DoesNotExist:
-                    raise ValueError(
-                        f"Unit symbol '{unit_symbol}' not found for line {i}."
-                    )
-                except Currency.DoesNotExist:
-                    raise ValueError(
-                        f"Currency symbol '{currency_symbol}' not found for line {i}."
-                    )
-
-                line_po_id = f"{next_po_id}-{str(position).zfill(3)}"
-
-                LinesPurchaseOrder.objects.create(
-                    id_purchase_order_line=line_po_id,
-                    id_purchase_order=purchase_order,
-                    id_material=material,
-                    position=position,
-                    quantity=quantity,
-                    unit_material=unit_object,
-                    price=price,
-                    currency_supplier=currency_obj,
-                    received_quatity=0,
-                    created_by=request.user,
-                )
-
-            response_data = {
-                'success': True,
-                'id_purchase_order': next_po_id,
-                'message': f"Purchase Order {next_po_id} created succesfully.",
-                'redirect_url': '/purchases/list/',
-            }
-            return JsonResponse(response_data, status=201)
+        return JsonResponse(response_data, status=201)
 
     except ValueError as e:
-        return JsonResponse({'error': f'Valiation Error: {str(e)}'}, 
-                            status=400)
+        return JsonResponse({"error": f"Validation Error: {str(e)}"}, status=400)
+
     except json.JSONDecodeError:
         return JsonResponse(
-            {'error': 'Invalid JSON format in request body.'}, 
-            status=400)
+            {"error": "Invalid JSON format in request body."},
+            status=400,
+        )
 
     except Exception as e:
         print(f"CRITICAL ERROR: {e}")
         return JsonResponse(
-        {'error': f'An unexpected server error occurred: {str(e)}'},
-        status=500
-    )
+            {"error": f"An unexpected server error occurred: {str(e)}"},
+            status=500,
+        )
